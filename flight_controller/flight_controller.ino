@@ -1,6 +1,8 @@
 #include "Barometer.h"
 #include "PidController.h"
+#include "MPU6050.h"
 
+MPU6050 gyroscope;
 Barometer barometer;
 double altitude = 0;
 
