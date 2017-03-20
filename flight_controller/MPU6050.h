@@ -9,15 +9,20 @@ class MPU6050 {
         MPU6050();
 
         int initialize(int rollAxis, int pitchAxis, int yawAxis);
+        void takeoffOps();
         void calibrate();
         void requestGyroRead();
-        void readGyro();
+        int readGyro();
+        int processData();
 
         float getPitchAngle();
         float getRollAngle();
+        float getYawAngle();
     private:
         int _gyroAddress;
         bool _isCalibrated;
+        bool _hasDataToProcess;
+        bool _hasMadeRequest;
 
         int _correctAxis[3];
         int _gyroAxis[3];
@@ -33,6 +38,9 @@ class MPU6050 {
         
         float _accelPitchAngle, _accelRollAngle;
         float _pitchAngle, _rollAngle;
+
+        float _rollInput, _pitchInput, _yawInput;
+        float _pitchLevelAdjust, _rollLevelAdjust;
 };
 
 #endif

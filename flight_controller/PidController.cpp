@@ -85,6 +85,15 @@ void PidController::calculatePid(const float gyroRollInput,
     _yawLastDerivError = _tempError;
 }
 
+void PidController::takeoffOps() {
+    _rollIntPastError = 0;
+    _rollLastDerivError = 0;
+    _pitchIntPastError = 0;
+    _pitchLastDerivError = 0;
+    _yawIntPastError = 0;
+    _yawLastDerivError = 0;
+}
+
 float PidController::getPitchOutput() {
     return _pitchOutput;
 }

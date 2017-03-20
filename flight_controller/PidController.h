@@ -17,6 +17,7 @@ class PidController {
         void calculatePid(const float gyroRollInput, 
                           const float gyroPitchInput, 
                           const float gyroYawInput);
+        void takeoffOps();
         float getRollOutput();
         float getPitchOutput();
         float getYawOutput();
