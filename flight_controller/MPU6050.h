@@ -18,6 +18,8 @@ class MPU6050 {
         float getRollInput();
         float getPitchInput();
         float getYawInput();
+        float getRollLevelAdjust();
+        float getPitchLevelAdjust();
     private:
         int _gyroAddress;
         bool _isCalibrated;

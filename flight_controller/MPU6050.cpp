@@ -22,6 +22,14 @@ float MPU6050::getYawInput() {
     return _yawInput;
 }
 
+float MPU6050::getRollLevelAdjust() {
+    return _rollLevelAdjust;
+}
+
+float MPU6050::getPitchLevelAdjust() {
+    return _pitchLevelAdjust;
+}
+
 int MPU6050::processData() {
     if(!_hasDataToProcess) {
         return -1;

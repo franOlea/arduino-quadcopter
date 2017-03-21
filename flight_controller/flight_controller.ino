@@ -5,6 +5,8 @@
 
 byte EEPROM_DATA[36];
 
+float pidRollSetpoint, pidPitchSetpoint, pidYawSetpoint;
+
 volatile int receiverInputChannelOne, receiverInputChannelTwo, receiverInputChannelThree, receiverInputChannelFour;
 int escOne, escTwo, escThree, escFour;
 int throttle, batteryVoltage;
@@ -12,6 +14,7 @@ int receiverInput[5];
 int start;
 
 unsigned long loopTimer;
+unsigned long escOneTimer, escTwoTimer, escThreeTimer, escFourTimer, escLoopTimer;
 
 MPU6050 gyroscope;
 Barometer barometer;
@@ -26,6 +29,22 @@ void setup() {
 //  Serial.println("REBOOT");
 //  barometer.initialize();
 
+	doSetup();
+}
+
+void loop() {
+	//for(int aux=0; aux<120; aux++) {
+	//	delay(6);
+	//	barometer.update();
+	//	altitude += barometer.getAltitude();
+	//}
+	//Serial.println("alt: " + String(altitude/12));
+	//altitude = 0;
+
+	doLoop();
+}
+
+void doSetup() {
 	readEEPROM();
 	setOutputPins();
 	if(isSystemReady() != 0) {
@@ -43,18 +62,38 @@ void setup() {
 	loopTimer = micros();
 }
 
-void loop() {
-	//for(int aux=0; aux<120; aux++) {
-	//	delay(6);
-	//	barometer.update();
-	//	altitude += barometer.getAltitude();
-	//}
-	//Serial.println("alt: " + String(altitude/12));
-	//altitude = 0;
-
+void doLoop() {
 	gyroscope.processData();
+	startAndStopCheck();
+	calculatePidSetpoints();
+	pidController.calculatePid(gyroscope.getRollInput(), pidRollSetpoint,
+                               gyroscope.getPitchInput(), pidPitchSetpoint,
+                               gyroscope.getYawInput(), pidYawSetpoint);
+	checkBatteryVoltage();
+	generateESCOutputs();
+	checkLoopTimeoutAndWait();
+	startESCPulses();
+	gyroscope.requestGyroRead();
+	convertReceiverChannels();
+	gyroscope.readGyro();
+}
 
-	if(receiverInputChannelThree < 1050 && receiverInputChannelFour < 1050) {
+void convertReceiverChannels() {
+	receiverInputChannelOne = convertReceiverChannel(1);
+	receiverInputChannelTwo = convertReceiverChannel(2);
+	receiverInputChannelThree = convertReceiverChannel(3);
+	receiverInputChannelFour = convertReceiverChannel(4);
+}
+
+void checkLoopTimeoutAndWait() {
+	if(micros() - loopTimer > 4050) {
+		//TODO Too much time problem handling
+	}
+	while(micros() - loopTimer < 4000);
+}
+
+void startAndStopCheck() {
+	if(start = 0 && receiverInputChannelThree < 1050 && receiverInputChannelFour < 1050) {
 		start = 1;	//Pre-engine start.
 	}
 
@@ -67,12 +106,136 @@ void loop() {
 	if(start == 2 && receiverInputChannelThree < 1050 && receiverInputChannelFour > 1950) {
 		start = 0;	//Engines stop.
 	}
+}
 
+void checkBatteryVoltage() {
+	readBatteryVoltage();
+
+	if(batteryVoltage < 1000 && batteryVoltage > 600) {
+		// TODO Led LOW BATTERY SIGNAL
+	}
+}
+
+void calculatePidSetpoints() {
 	//The PID set point in degrees per second is determined by the roll receiver input.
 	//In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
-	//pid_roll_setpoint = 0;
+	pidRollSetpoint = 0;
 
+	if(receiverInputChannelOne > 1508) {
+		pidRollSetpoint = receiverInputChannelOne - 1508;
+	} else if(receiverInputChannelOne < 1492) {
+		pidRollSetpoint = receiverInputChannelOne - 1492;
+	}
 
+	pidRollSetpoint -= gyroscope.getRollLevelAdjust();
+	pidRollSetpoint /= 3.0;
+
+	pidPitchSetpoint = 0;
+
+	if(receiverInputChannelTwo > 1508) {
+		pidPitchSetpoint = receiverInputChannelTwo - 1508;
+	} else if(receiverInputChannelTwo < 1492) {
+		pidPitchSetpoint = receiverInputChannelTwo - 1492;
+	}
+
+	pidPitchSetpoint -= gyroscope.getPitchLevelAdjust();
+	pidPitchSetpoint /= 3.0;
+
+	pidYawSetpoint = 0;
+
+	if(receiverInputChannelThree > 1050) {	//Dont yaw when turning motors off.
+		if(receiverInputChannelFour > 1508) {
+			pidYawSetpoint = (receiverInputChannelFour - 1508)/3.0;
+		} else if(receiverInputChannelFour < 1492) {
+			pidYawSetpoint = (receiverInputChannelFour - 1492)/3.0;
+		}
+	}
+}
+
+void startESCPulses() {
+	loopTimer = micros();
+	PORTD |= B11110000;
+	escOneTimer = escOne + loopTimer;
+	escTwoTimer = escTwo + loopTimer;
+	escThreeTimer = escThree + loopTimer;
+	escFourTimer = escFour + loopTimer;
+}
+
+void stopESCPulses() {
+	while(PORTD >= 16) {
+		escLoopTimer = micros();
+		if(escOneTimer <= escLoopTimer) {
+			PORTD &= B11101111;
+		}
+		if(escTwoTimer <= escLoopTimer) {
+			PORTD &= B11011111;
+		}
+		if(escThreeTimer <= escLoopTimer) {
+			PORTD &= B10111111;
+		}
+		if(escFourTimer <= escLoopTimer) {
+			PORTD &= B01111111;
+		}
+	}
+}
+
+void generateESCOutputs() {
+	throttle = receiverInputChannelThree;
+
+	if(start == 2) {
+		if(throttle > 1880) {
+			throttle = 1880;
+		}
+
+		escOne = 	throttle - pidController.getPitchOutput() + pidController.getRollOutput() - pidController.getYawOutput();
+		escTwo = 	throttle + pidController.getPitchOutput() + pidController.getRollOutput() + pidController.getYawOutput();
+		escThree = 	throttle + pidController.getPitchOutput() - pidController.getRollOutput() - pidController.getYawOutput();
+		escFour = 	throttle - pidController.getPitchOutput() - pidController.getRollOutput() + pidController.getYawOutput();
+
+		if(batteryVoltage > 1240 && batteryVoltage < 800) {
+			escOne = escOne 	* ((1240 - batteryVoltage)/(float)3500);
+			escTwo = escTwo 	* ((1240 - batteryVoltage)/(float)3500);
+			escThree = escThree * ((1240 - batteryVoltage)/(float)3500);
+			escFour = escFour 	* ((1240 - batteryVoltage)/(float)3500);
+		}
+
+		if(escOne < 1100) {
+			escOne = 1100;
+		}
+
+		if(escTwo < 1100) {
+			escTwo = 1100;
+		}
+
+		if(escThree < 1100) {
+			escThree = 1100;
+		}
+
+		if(escFour < 1100) {
+			escFour = 1100;
+		}
+
+		if(escOne > 2000) {
+			escOne = 2000;
+		}
+
+		if(escTwo > 2000) {
+			escTwo = 2000;
+		}
+
+		if(escThree > 2000) {
+			escThree = 2000;
+		}
+
+		if(escFour > 2000) {
+			escFour = 2000;
+		}
+	} else {
+		escOne = 1000;
+		escTwo = 1000;
+		escThree = 1000;
+		escFour = 1000;
+	}
 }
 
 void readEEPROM() {
@@ -111,12 +274,12 @@ void waitForThrottleDown() {
 }
 
 void readBatteryVoltage() {
-	//Load the battery voltage to the battery_voltage variable.
+	//Load the battery voltage to the batteryVoltage variable.
 	//65 is the voltage compensation for the diode.
 	//12.6V equals ~5V @ Analog 0.
 	//12.6V equals 1023 analogRead(0).
 	//1260 / 1023 = 1.2317.
-	//The variable battery_voltage holds 1050 if the battery voltage is 10.5V.
+	//The variable batteryVoltage holds 1050 if the battery voltage is 10.5V.
 	batteryVoltage = (analogRead(0) + 65) * 1.2317;
 }
 
