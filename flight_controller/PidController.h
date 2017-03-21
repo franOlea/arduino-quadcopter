@@ -12,11 +12,13 @@ class PidController {
                       const float yawIntGain, 
                       const float yawDerivGain, 
                       const int maxRoll, 
-                      const int maxYaw, 
-                      const bool autoLevel);
+                      const int maxYaw);
         void calculatePid(const float gyroRollInput, 
-                          const float gyroPitchInput, 
-                          const float gyroYawInput);
+                          const float rollSetPoint,
+                          const float gyroPitchInput,
+                          const float pitchSetPoint,
+                          const float gyroYawInput,
+                          const float yawSetpoint);
         void takeoffOps();
         float getRollOutput();
         float getPitchOutput();
@@ -33,7 +35,6 @@ class PidController {
         float _yawDerivGain;
         int _maxRoll;
         int _maxYaw;
-        bool _autoLevel;
 
         float _tempError;
         float _rollIntPastError, _rollSetPoint, _rollLastDerivError;

@@ -8,8 +8,7 @@ PidController::PidController(const float rollPropGain,
                              const float yawIntGain, 
                              const float yawDerivGain, 
                              const int maxRoll, 
-                             const int maxYaw, 
-                             const bool autoLevel) {
+                             const int maxYaw) {
     _rollPropGain = rollPropGain;
     _rollIntGain = rollIntGain;
     _rollDerivGain = rollDerivGain;
@@ -21,14 +20,16 @@ PidController::PidController(const float rollPropGain,
     _yawDerivGain = yawDerivGain;
     _maxRoll = maxRoll;
     _maxYaw = maxYaw;
-    _autoLevel = autoLevel;
 }
 
 void PidController::calculatePid(const float gyroRollInput, 
-                                 const float gyroPitchInput, 
-                                 const float gyroYawInput) {
+                                 const float rollSetPoint,
+                                 const float gyroPitchInput,
+                                 const float pitchSetPoint,
+                                 const float gyroYawInput,
+                                 const float yawSetpoint) {
     // Roll calculations
-    _tempError = gyroRollInput - _rollSetPoint;
+    _tempError = gyroRollInput - rollSetPoint;
     _rollIntPastError += _rollIntGain * _tempError;
 
     if(_rollIntPastError > _maxRoll) {
@@ -47,7 +48,7 @@ void PidController::calculatePid(const float gyroRollInput,
     _rollLastDerivError = _tempError;
 
     // Pitch calculations
-    _tempError = gyroPitchInput - _pitchSetPoint;
+    _tempError = gyroPitchInput - pitchSetPoint;
     _pitchIntPastError += _rollIntGain * _tempError;
 
     if(_pitchIntPastError > _maxRoll) {
@@ -66,7 +67,7 @@ void PidController::calculatePid(const float gyroRollInput,
     _pitchLastDerivError = _tempError;
 
     // Yaw calculations
-    _tempError = gyroYawInput - _yawSetpoint;
+    _tempError = gyroYawInput - yawSetpoint;
     _yawIntPastError += _yawIntGain * _tempError;
 
     if(_yawIntPastError > _maxRoll) {

@@ -15,9 +15,9 @@ class MPU6050 {
         int readGyro();
         int processData();
 
-        float getPitchAngle();
-        float getRollAngle();
-        float getYawAngle();
+        float getRollInput();
+        float getPitchInput();
+        float getYawInput();
     private:
         int _gyroAddress;
         bool _isCalibrated;

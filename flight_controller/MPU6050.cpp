@@ -10,6 +10,18 @@ void MPU6050::takeoffOps() {
     _rollAngle = _accelRollAngle;
 }
 
+float MPU6050::getRollInput() {
+    return _rollInput;
+}
+
+float MPU6050::getPitchInput() {
+    return _pitchInput;
+}
+
+float MPU6050::getYawInput() {
+    return _yawInput;
+}
+
 int MPU6050::processData() {
     if(!_hasDataToProcess) {
         return -1;

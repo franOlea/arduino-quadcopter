@@ -11,8 +11,11 @@ int throttle, batteryVoltage;
 int receiverInput[5];
 int start;
 
+unsigned long loopTimer;
+
 MPU6050 gyroscope;
 Barometer barometer;
+PidController pidController(0, 0, 0, 0, 0, 0, 0, 0);
 
 
 double altitude = 0;
@@ -32,19 +35,44 @@ void setup() {
 		//TODO Led error infinite loop
 	}
 	gyroscope.calibrate();
+	gyroscope.requestGyroRead();
+	gyroscope.readGyro();
 	setInterrupts();
 	waitForThrottleDown();
 	readBatteryVoltage();
+	loopTimer = micros();
 }
 
 void loop() {
-  for(int aux=0; aux<120; aux++) {
-    delay(6);
-    barometer.update();
-    altitude += barometer.getAltitude();
-  }
-  Serial.println("alt: " + String(altitude/12));
-  altitude = 0;
+	//for(int aux=0; aux<120; aux++) {
+	//	delay(6);
+	//	barometer.update();
+	//	altitude += barometer.getAltitude();
+	//}
+	//Serial.println("alt: " + String(altitude/12));
+	//altitude = 0;
+
+	gyroscope.processData();
+
+	if(receiverInputChannelThree < 1050 && receiverInputChannelFour < 1050) {
+		start = 1;	//Pre-engine start.
+	}
+
+	if(start == 1 && receiverInputChannelThree < 1050 && receiverInputChannelFour > 1450) {
+		start = 2; //Engines start.
+		gyroscope.takeoffOps();		//Sets the angles zero to the accelerometers measurements.
+		pidController.takeoffOps();	//Sets past errors to 0.
+	}
+
+	if(start == 2 && receiverInputChannelThree < 1050 && receiverInputChannelFour > 1950) {
+		start = 0;	//Engines stop.
+	}
+
+	//The PID set point in degrees per second is determined by the roll receiver input.
+	//In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
+	//pid_roll_setpoint = 0;
+
+
 }
 
 void readEEPROM() {
