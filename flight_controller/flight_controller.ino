@@ -8,6 +8,7 @@ byte EEPROM_DATA[36];
 float pidRollSetpoint, pidPitchSetpoint, pidYawSetpoint;
 
 volatile int receiverInputChannelOne, receiverInputChannelTwo, receiverInputChannelThree, receiverInputChannelFour;
+bool lastChannelOne, lastChannelTwo, lastChannelThree, lastChannelFour;
 int escOne, escTwo, escThree, escFour;
 int throttle, batteryVoltage;
 int receiverInput[5];
@@ -15,6 +16,9 @@ int start;
 
 unsigned long loopTimer;
 unsigned long escOneTimer, escTwoTimer, escThreeTimer, escFourTimer, escLoopTimer;
+
+unsigned long receiverChannelOneTimer, receiverChannelTwoTimer, receiverChannelThreeTimer, receiverChannelFourTimer;
+unsigned long receiverCurrentTime;
 
 MPU6050 gyroscope;
 Barometer barometer;
@@ -319,5 +323,49 @@ int convertReceiverChannel(byte function) {
 		}
 	} else {
 		return 1500;
+	}
+}
+
+ISR(PCINT0_vect) {
+	receiverCurrentTime = micros();
+	
+	if(PINB & B00000001) {
+		if(!lastChannelOne) {
+			lastChannelOne = true;                                        
+			receiverChannelOneTimer = receiverCurrentTime;
+		}
+	} else if(lastChannelOne) {
+		lastChannelOne = false;
+		receiverInput[1] = receiverCurrentTime - receiverChannelOneTimer;
+	}
+	
+	if(PINB & B00000010) {
+		if(!lastChannelTwo) {
+			lastChannelTwo = true;                                        
+			receiverChannelTwoTimer = receiverCurrentTime;
+		}
+	} else if(lastChannelTwo) {
+		lastChannelTwo = false;
+		receiverInput[2] = receiverCurrentTime - receiverChannelTwoTimer;
+	}
+	
+	if(PINB & B00000100) {
+		if(!lastChannelThree) {
+			lastChannelThree = true;                                        
+			receiverChannelThreeTimer = receiverCurrentTime;
+		}
+	} else if(lastChannelThree) {
+		lastChannelThree = false;
+		receiverInput[3] = receiverCurrentTime - receiverChannelThreeTimer;
+	}
+	
+	if(PINB & B00001000) {
+		if(!lastChannelFour) {
+			lastChannelFour = true;                                        
+			receiverChannelFourTimer = receiverCurrentTime;
+		}
+	} else if(lastChannelFour) {
+		lastChannelFour = false;
+		receiverInput[4] = receiverCurrentTime - receiverChannelFourTimer;
 	}
 }
