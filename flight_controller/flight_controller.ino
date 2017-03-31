@@ -20,42 +20,45 @@ unsigned long escOneTimer, escTwoTimer, escThreeTimer, escFourTimer, escLoopTime
 unsigned long receiverChannelOneTimer, receiverChannelTwoTimer, receiverChannelThreeTimer, receiverChannelFourTimer;
 unsigned long receiverCurrentTime;
 
+unsigned long ultrasonicTimer, ultrasonicCurrentTime;
+bool lastUltrasonicState;
+
 double altitude = 0;
-double groundDistance = 0;
+volatile double groundDistance = 0;
 
 MPU6050 gyroscope;
 Barometer barometer;
 PidController pidController(0, 0, 0, 0, 0, 0, 0, 0);
 
 void setup() {
-	  Serial.begin(9600);
-	  Serial.println("REBOOT");
-	//  barometer.initialize();
-  //	doSetup();
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN,LOW);
-  
-  if(gyroscope.initialize(0, 1, 2, 0x68) != 0) {
-    Serial.println("ERROR INITIALIZING GYRO.");
-    while(1);
-  } else {
-    Serial.println("GYRO INITIALIZED");
-  }
-  Serial.println("CALIBRATING");
-  gyroscope.calibrate();
-  Serial.println("CALIBRATED");
+	//doSetup();
+	doSetupTest();
 }
 
 void loop() {
-	//for(int aux=0; aux<120; aux++) {
-	//	delay(6);
-	//	barometer.update();
-	//	altitude += barometer.getAltitude();
-	//}
-	//Serial.println("alt: " + String(altitude/12));
-	//altitude = 0;
-  //	doLoop();
- 
+	//doLoop();
+	doLoopTest();
+}
+
+void doSetupTest() {
+	Serial.begin(9600);
+	Serial.println("REBOOT");
+	pinMode(LED_BUILTIN, OUTPUT);
+	digitalWrite(LED_BUILTIN,LOW);
+
+	if(gyroscope.initialize(0, 1, 2, 0x68) != 0) {
+		Serial.println("ERROR INITIALIZING GYRO.");
+		while(1);
+	} else {
+		Serial.println("GYRO INITIALIZED");
+	}
+
+	Serial.println("CALIBRATING");
+	gyroscope.calibrate();
+	Serial.println("CALIBRATED");
+}
+
+void doLoopTest() {
   gyroscope.requestGyroRead();
   gyroscope.readGyro(); 
   gyroscope.processData();
@@ -183,7 +186,7 @@ void calculatePidSetpoints() {
 
 void startESCPulses() {
 	loopTimer = micros();
-	PORTD |= B11110000;
+	PORTB |= B00011110;
 	escOneTimer = escOne + loopTimer;
 	escTwoTimer = escTwo + loopTimer;
 	escThreeTimer = escThree + loopTimer;
@@ -191,19 +194,19 @@ void startESCPulses() {
 }
 
 void stopESCPulses() {
-	while(PORTD >= 16) {
+	while(PORTB >= 2) {
 		escLoopTimer = micros();
 		if(escOneTimer <= escLoopTimer) {
-			PORTD &= B11101111;
+			PORTB &= B11111101;
 		}
 		if(escTwoTimer <= escLoopTimer) {
-			PORTD &= B11011111;
+			PORTB &= B11111011;
 		}
 		if(escThreeTimer <= escLoopTimer) {
-			PORTD &= B10111111;
+			PORTB &= B11110111;
 		}
 		if(escFourTimer <= escLoopTimer) {
-			PORTD &= B01111111;
+			PORTB &= B11101111;
 		}
 	}
 }
@@ -279,13 +282,17 @@ void setOutputPins() {
 }
 
 void setInterrupts() {
-	//Set PCIE2 to enable PCMK2 scan.
+	//Set PCIE1 to enable PCMK1 scan for radio pins.
 	//set radio pins to trigger on an interrupt on state change.
 	PCICR |= (1 << PCIE1);
 	PCMSK1 |= (1 << PCINT8);
 	PCMSK1 |= (1 << PCINT9);
 	PCMSK1 |= (1 << PCINT10);
 	PCMSK1 |= (1 << PCINT11);
+	//Set PCIE2 to enable PCMK2 scan for ultrasonic signal pin.
+	//Set ultrasonic signal pins to trigger on an interrupt on state change.
+	PCICR |= (1 << PCIE2);
+	PCMSK2 |= (1 << PCINT22);
 }
 
 int isSystemReady() {
@@ -399,4 +406,19 @@ ISR(PCINT1_vect) {
 		lastChannelFour = false;
 		receiverInput[4] = receiverCurrentTime - receiverChannelFourTimer;
 	}
+}
+
+ISR(PCINT2_vect) {
+	ultrasonicCurrentTime = micros();
+	
+	if(PIND & B00010000) {
+		if(!lastUltrasonicState) {
+			lastUltrasonicState = true;
+			ultrasonicTimer = ultrasonicCurrentTime;
+		}
+	} else if(lastUltrasonicState) {
+		lastUltrasonicState = false;
+		groundDistance = (ultrasonicCurrentTime - ultrasonicTimer) / 58;	//Ground distance formula:  uS / 58 = centimeters
+	}
+	
 }
