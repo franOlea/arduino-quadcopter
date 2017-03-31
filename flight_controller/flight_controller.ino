@@ -105,9 +105,11 @@ void doLoop() {
 	generateESCOutputs();
 	checkLoopTimeoutAndWait();
 	startESCPulses();
-	gyroscope.requestGyroRead();
-	convertReceiverChannels();
-	gyroscope.readGyro();
+		gyroscope.requestGyroRead();
+		convertReceiverChannels();
+		gyroscope.readGyro();
+		triggerUltrasonicPulse();
+	stopESCPulses();
 }
 
 void convertReceiverChannels() {
@@ -279,6 +281,7 @@ void readEEPROM() {
 void setOutputPins() {
 	//TODO maps and sets output pins (ESCs & LED)
 	DDRB |= B00011110;	//sets pins 12, 11, 10 and 9 as outputs.
+	DDRD |= B00100000; 	//sets pin 6 as output.
 }
 
 void setInterrupts() {
@@ -362,6 +365,12 @@ int convertReceiverChannel(byte function) {
 	} else {
 		return 1500;
 	}
+}
+
+void triggerUltrasonicPulse() {
+	PORTD |= B00100000;
+	delayMicroseconds(10);
+	PORTD &= B11011111;
 }
 
 ISR(PCINT1_vect) {
