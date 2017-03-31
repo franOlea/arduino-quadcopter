@@ -20,20 +20,30 @@ unsigned long escOneTimer, escTwoTimer, escThreeTimer, escFourTimer, escLoopTime
 unsigned long receiverChannelOneTimer, receiverChannelTwoTimer, receiverChannelThreeTimer, receiverChannelFourTimer;
 unsigned long receiverCurrentTime;
 
+double altitude = 0;
+double groundDistance = 0;
+
 MPU6050 gyroscope;
 Barometer barometer;
 PidController pidController(0, 0, 0, 0, 0, 0, 0, 0);
 
-
-double altitude = 0;
-
-
 void setup() {
-//  Serial.begin(9600);
-//  Serial.println("REBOOT");
-//  barometer.initialize();
-
-	doSetup();
+	  Serial.begin(9600);
+	  Serial.println("REBOOT");
+	//  barometer.initialize();
+  //	doSetup();
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN,LOW);
+  
+  if(gyroscope.initialize(0, 1, 2, 0x68) != 0) {
+    Serial.println("ERROR INITIALIZING GYRO.");
+    while(1);
+  } else {
+    Serial.println("GYRO INITIALIZED");
+  }
+  Serial.println("CALIBRATING");
+  gyroscope.calibrate();
+  Serial.println("CALIBRATED");
 }
 
 void loop() {
@@ -44,8 +54,23 @@ void loop() {
 	//}
 	//Serial.println("alt: " + String(altitude/12));
 	//altitude = 0;
-
-	doLoop();
+  //	doLoop();
+ 
+  gyroscope.requestGyroRead();
+  gyroscope.readGyro(); 
+  gyroscope.processData();
+  Serial.print("ROLL: ");
+  Serial.print(gyroscope.getRollInput());
+  Serial.print(" | PITCH: ");
+  Serial.print(gyroscope.getPitchInput());
+  Serial.print(" | YAW: ");
+  Serial.print(gyroscope.getYawInput());
+  Serial.print(" | ROLL LEVEL ADJUST: ");
+  Serial.print(gyroscope.getRollLevelAdjust());
+  Serial.print(" | PITCH LEVEL ADJUST: ");
+  Serial.print(gyroscope.getPitchLevelAdjust());
+  Serial.println();
+  delay(4);
 }
 
 void doSetup() {
@@ -54,7 +79,7 @@ void doSetup() {
 	if(isSystemReady() != 0) {
 		//TODO Led error infinite loop
 	}
-	if(gyroscope.initialize(EEPROM_DATA[28], EEPROM_DATA[29], EEPROM_DATA[30]) != 0) {
+	if(gyroscope.initialize(EEPROM_DATA[28], EEPROM_DATA[29], EEPROM_DATA[30], 0x68) != 0) {
 		//TODO Led error infinite loop
 	}
 	gyroscope.calibrate();
@@ -250,11 +275,17 @@ void readEEPROM() {
 
 void setOutputPins() {
 	//TODO maps and sets output pins (ESCs & LED)
+	DDRB |= B00011110;	//sets pins 12, 11, 10 and 9 as outputs.
 }
 
 void setInterrupts() {
-	//Set PCIE0 to enable PCMK0 scan.
+	//Set PCIE2 to enable PCMK2 scan.
 	//set radio pins to trigger on an interrupt on state change.
+	PCICR |= (1 << PCIE1);
+	PCMSK1 |= (1 << PCINT8);
+	PCMSK1 |= (1 << PCINT9);
+	PCMSK1 |= (1 << PCINT10);
+	PCMSK1 |= (1 << PCINT11);
 }
 
 int isSystemReady() {
@@ -326,10 +357,10 @@ int convertReceiverChannel(byte function) {
 	}
 }
 
-ISR(PCINT0_vect) {
+ISR(PCINT1_vect) {
 	receiverCurrentTime = micros();
 	
-	if(PINB & B00000001) {
+	if(PINC & B00000001) {
 		if(!lastChannelOne) {
 			lastChannelOne = true;                                        
 			receiverChannelOneTimer = receiverCurrentTime;
@@ -339,7 +370,7 @@ ISR(PCINT0_vect) {
 		receiverInput[1] = receiverCurrentTime - receiverChannelOneTimer;
 	}
 	
-	if(PINB & B00000010) {
+	if(PINC & B00000010) {
 		if(!lastChannelTwo) {
 			lastChannelTwo = true;                                        
 			receiverChannelTwoTimer = receiverCurrentTime;
@@ -349,7 +380,7 @@ ISR(PCINT0_vect) {
 		receiverInput[2] = receiverCurrentTime - receiverChannelTwoTimer;
 	}
 	
-	if(PINB & B00000100) {
+	if(PINC & B00000100) {
 		if(!lastChannelThree) {
 			lastChannelThree = true;                                        
 			receiverChannelThreeTimer = receiverCurrentTime;
@@ -359,7 +390,7 @@ ISR(PCINT0_vect) {
 		receiverInput[3] = receiverCurrentTime - receiverChannelThreeTimer;
 	}
 	
-	if(PINB & B00001000) {
+	if(PINC & B00001000) {
 		if(!lastChannelFour) {
 			lastChannelFour = true;                                        
 			receiverChannelFourTimer = receiverCurrentTime;

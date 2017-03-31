@@ -69,13 +69,14 @@ int MPU6050::processData() {
     return 0;
 }
 
-int MPU6050::initialize(int rollAxis, int pitchAxis, int yawAxis) {
+int MPU6050::initialize(int rollAxis, int pitchAxis, int yawAxis, int gyroAddress) {
     Wire.begin();
     TWBR = 12;  //Set the I2C clock speed to 400kHz.
 
     _correctAxis[0] = rollAxis;
     _correctAxis[1] = pitchAxis;
     _correctAxis[2] = yawAxis;
+    _gyroAddress = gyroAddress;
 
     Wire.beginTransmission(_gyroAddress);
     Wire.write(0x6B);       //Writes to the PWR_MGMT_1 register (6B hex)

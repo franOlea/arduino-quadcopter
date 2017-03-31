@@ -8,7 +8,7 @@ class MPU6050 {
     public:
         MPU6050();
 
-        int initialize(int rollAxis, int pitchAxis, int yawAxis);
+        int initialize(int rollAxis, int pitchAxis, int yawAxis, int gyroAddress);
         void takeoffOps();
         void calibrate();
         void requestGyroRead();
